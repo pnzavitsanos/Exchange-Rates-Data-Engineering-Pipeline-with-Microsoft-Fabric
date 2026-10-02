@@ -61,6 +61,29 @@ This project implements an end-to-end **batch** data pipeline for historical and
 
 > **Background.** The project started as a simple Python ETL exercise that loaded Frankfurter data into a local PostgreSQL database. It was then redesigned as a Microsoft Fabric pipeline, partly as a practical companion to **Microsoft Azure Data Fundamentals (DP-900)** study. The Fabric implementation is the canonical version of the project.
 
+### 🐘 Where it started: the PostgreSQL prototype
+
+📄 [`prototype/postgres_etl_prototype.py`](prototype/postgres_etl_prototype.py)
+
+The original pipeline was a single Python script that ran locally. It already had the same **Extract → Transform → Validate → Load** structure that the Fabric notebooks use today:
+
+- **Extract:** called the Frankfurter API (v1 `latest` endpoint) for EUR → USD, GBP and CHF.
+- **Transform:** reshaped the JSON `rates` dictionary into a Pandas DataFrame with `currency, rate, date, base_currency, amount`.
+- **Validate:** stopped the run if there were missing values or non-positive rates.
+- **Load:** wrote each row into a PostgreSQL `exchange_rates` table with `psycopg`, using `INSERT … ON CONFLICT (date, base_currency, currency) DO UPDATE`. That upsert is the idea that later became the Delta `MERGE`.
+
+| | PostgreSQL prototype | Microsoft Fabric version |
+|---|---|---|
+| Runs on | Local machine, run by hand | Fabric notebooks + scheduled Data Pipeline |
+| API | Frankfurter v1 (`/latest`) | Frankfurter v2 (`/v2/rates`) |
+| Currencies | USD, GBP, CHF | USD, GBP, CHF, CNY |
+| Storage | PostgreSQL table | Delta table in a Fabric Lakehouse |
+| Upsert | `INSERT … ON CONFLICT DO UPDATE` | Delta `MERGE` |
+| History | Daily rates only | One-time historical backfill + daily ETL |
+| Reporting | SQL queries | Semantic model + Power BI report |
+
+> The prototype is kept for reference only. It needs a local PostgreSQL database and reads the password from the `PGPASSWORD` environment variable.
+
 ---
 
 <a id="architecture"></a>
@@ -519,6 +542,9 @@ exchange-rates-fabric-pipeline/
 │   ├── initial_historical_backfill.ipynb   # One-time historical load (overwrite)
 │   └── daily_exchange_rates_ETL.ipynb      # Daily incremental ETL (MERGE)
 │
+├── prototype/
+│   └── postgres_etl_prototype.py           # Original local Python → PostgreSQL ETL
+│
 └── screenshots/
     ├── fabric_workspace.png                # Complete Fabric project and all artifacts
     ├── fabric_pipeline.png                 # Pipeline → daily notebook orchestration
@@ -528,7 +554,7 @@ exchange-rates-fabric-pipeline/
     └── powerbi_dashboard.png               # Final reporting output
 ```
 
-The repository holds code, notebooks, documentation and screenshots. The Lakehouse data itself stays in Fabric/OneLake.
+The repository holds code, notebooks, the original prototype, documentation and screenshots. The Lakehouse data itself stays in Fabric/OneLake.
 
 **The Fabric workspace**
 
